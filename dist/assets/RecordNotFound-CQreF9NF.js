@@ -1,0 +1,1 @@
+import{j as t,c as i,ak as o,F as s,d as r}from"./index-CEXjxNLA.js";function c({label:e,backTo:n,backLabel:a}){return t.jsx("div",{className:"p-6",children:t.jsx(i,{icon:o,title:`${e} not found`,description:"It may have been deleted.",action:t.jsx(s,{asChild:!0,variant:"outline",children:t.jsx(r,{to:n,children:a})})})})}export{c as R};

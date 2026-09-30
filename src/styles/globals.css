@@ -1,0 +1,157 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * Design tokens — see DESIGN.md.
+ * Raw palette first, then the shadcn token names remapped onto it (HSL triples,
+ * so Tailwind alpha modifiers keep working). Components read the shadcn names.
+ */
+@layer base {
+  :root {
+    --bg: #ffffff;
+    --surface-strong: #ffffff;
+    --ink: #111827;
+    --ink-muted: #5f6b7e;
+    --rule: rgba(17, 17, 20, 0.14);
+    --rule-strong: rgba(17, 17, 20, 0.3);
+    --rule-hard: rgba(17, 17, 20, 0.45);
+    --brand-hex: #181894;
+    --brand-soft: rgba(24, 24, 148, 0.1);
+    --warm: #ff875f;
+    --shadow-modal: 0 24px 64px rgba(15, 23, 42, 0.18);
+    --scrim: rgba(17, 24, 39, 0.4);
+    --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+
+    /* HSL triples */
+    --background: 0 0% 100%; /* --bg */
+    --foreground: 221 39% 11%; /* --ink */
+    --card: 0 0% 100%;
+    --card-foreground: 221 39% 11%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 221 39% 11%;
+    --primary: 240 72% 34%; /* --brand-fill */
+    --primary-foreground: 0 0% 100%; /* --on-brand */
+    --primary-hover: 240 71% 22%; /* --brand-strong */
+    --primary-press: 240 72% 16%; /* --brand-press */
+    --brand: 240 72% 34%; /* text, links, active rules */
+    --headline: 240 72% 34%;
+    --secondary: 240 50% 94%; /* --tint-strong */
+    --secondary-foreground: 221 39% 11%;
+    --muted: 240 50% 96%; /* --tint */
+    --muted-foreground: 217 14% 43%; /* --ink-muted */
+    --accent: 217 87% 97%; /* --press: every hover */
+    --accent-foreground: 221 39% 11%;
+    --destructive: 347 68% 42%; /* --danger */
+    --destructive-foreground: 0 0% 100%;
+    --success: 142 60% 30%;
+    --input: 240 3% 80%;
+    --ring: 240 72% 34%;
+
+    --chart-1: 240 72% 34%;
+
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 217 14% 43%;
+    --sidebar-primary: 240 72% 34%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 217 87% 97%;
+    --sidebar-accent-foreground: 221 39% 11%;
+    --sidebar-ring: 240 72% 34%;
+  }
+
+  :root.dark {
+    --bg: #0c0c0e;
+    --surface-strong: #141416;
+    --ink: #ececef;
+    --ink-muted: #9b9ba4;
+    --rule: rgba(255, 255, 255, 0.12);
+    --rule-strong: rgba(255, 255, 255, 0.26);
+    --rule-hard: rgba(255, 255, 255, 0.42);
+    --brand-soft: rgba(154, 154, 255, 0.12);
+    --shadow-modal: 0 24px 64px rgba(0, 0, 0, 0.5);
+    --scrim: rgba(0, 0, 0, 0.62);
+
+    --background: 240 8% 5%;
+    --foreground: 240 8% 93%;
+    --card: 240 5% 8%;
+    --card-foreground: 240 8% 93%;
+    --popover: 240 5% 8%;
+    --popover-foreground: 240 8% 93%;
+    --primary: 240 58% 50%; /* #3535c8 */
+    --primary-foreground: 0 0% 100%;
+    --primary-hover: 240 62% 58%;
+    --primary-press: 240 58% 42%;
+    --brand: 240 100% 80%; /* #9a9aff */
+    --headline: 240 8% 93%;
+    --secondary: 240 30% 17%;
+    --secondary-foreground: 240 8% 93%;
+    --muted: 240 26% 12%;
+    --muted-foreground: 240 4% 62%;
+    --accent: 232 30% 16%;
+    --accent-foreground: 240 8% 93%;
+    --destructive: 348 80% 66%;
+    --destructive-foreground: 240 8% 5%;
+    --success: 142 50% 55%;
+    --input: 240 4% 26%;
+    --ring: 240 100% 80%;
+
+    --chart-1: 240 100% 80%;
+
+    --sidebar-background: 240 5% 8%;
+    --sidebar-foreground: 240 4% 62%;
+    --sidebar-primary: 240 58% 50%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 232 30% 16%;
+    --sidebar-accent-foreground: 240 8% 93%;
+    --sidebar-ring: 240 100% 80%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html {
+    color-scheme: light;
+  }
+  html.dark {
+    color-scheme: dark;
+  }
+
+  body {
+    @apply bg-background font-sans text-foreground antialiased;
+    font-size: 0.94rem;
+  }
+
+  ::placeholder {
+    color: var(--ink-muted);
+  }
+}
+
+@layer components {
+  /* Machine voice: eyebrows, nav, table heads, states. */
+  .rx-meta {
+    @apply font-mono uppercase;
+    font-size: 0.72rem;
+    line-height: 1.5;
+    letter-spacing: 0.08em;
+    color: var(--ink-muted);
+  }
+
+  .rx-bracket::before {
+    content: "[\00a0";
+  }
+  .rx-bracket::after {
+    content: "\00a0]";
+  }
+
+  /* 6px brand square: marks eyebrow / label lines. */
+  .rx-mark::before {
+    content: "";
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    margin-right: 0.6em;
+    vertical-align: 0.1em;
+    background: hsl(var(--brand));
+  }
+}
