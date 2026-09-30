@@ -1,7 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { createClient, type Client } from "@libsql/client";
 import { loadEnv, type Plugin } from "vite";
-import { isStaff, userFromSession } from "../server/auth";
+import { isAdmin, userFromSession } from "../server/auth";
 import { handleDbRequest, send } from "../server/db";
 import { serverEnv } from "../server/env";
 
@@ -12,13 +12,13 @@ import { serverEnv } from "../server/env";
  * VITE_RIVERX_DB_URL is not. The Turso token stays in this Node process; the
  * browser gets a random per-process key and talks to /__local-db/v1 with the
  * same request/response contract as the real Data API (see DATABASE.md).
- * Like /api/db, it also requires an admin or agent session: the key alone is in
- * every visitor's bundle, customers included.
+ * Like /api/db, it also requires an admin session: the key alone is in
+ * every visitor's bundle.
  */
 
 const BASE_PATH = "/__local-db/v1";
 
-/** Server settings (TURSO_*, AGENT_SIGNUP_CODE, APP_URL) from the process env first, then .env / .env.local. */
+/** Server settings (TURSO_*, ADMIN_SIGNUP_CODE, APP_URL, email) from the process env first, then .env / .env.local. */
 export function loadServerEnv(mode: string) {
   const fileEnv = loadEnv(mode, process.cwd(), "");
   return serverEnv({ ...fileEnv, ...process.env });
@@ -57,7 +57,7 @@ export function localDbProxy(): Plugin {
         if (req.headers["x-riverx-key"] !== key) return send(res, 401, { error: "Invalid key", code: "unauthorized" });
         const user = await userFromSession(db, req).catch(() => null);
         if (!user) return send(res, 401, { error: "Log in to continue.", code: "unauthorized" });
-        if (!isStaff(user)) return send(res, 403, { error: "Only agents can use the Data API.", code: "forbidden" });
+        if (!isAdmin(user)) return send(res, 403, { error: "Only admins can use the Data API.", code: "forbidden" });
         const action = (req.url ?? "").split("?")[0].replace(/^\/+|\/+$/g, "");
         await handleDbRequest(db, action, req, res, "local-proxy");
       });

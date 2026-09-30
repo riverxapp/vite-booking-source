@@ -2,15 +2,17 @@ import { createHash, randomBytes, scrypt as scryptCb, timingSafeEqual } from "no
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { promisify } from "node:util";
 import { createClient, type Client } from "@libsql/client";
-import { httpError, nowSeconds, optionalUrl, readCookie, readJson, routeAction, send, sendError, str, validEmail } from "./http.js";
+import { sendEmail } from "./email.js";
+import type { Env } from "./env.js";
+import { clientIp, httpError, nowSeconds, optionalUrl, rateLimit, readCookie, readJson, routeAction, send, sendError, str, validEmail } from "./http.js";
 
 /**
- * Server-side auth for the helpdesk: one login system with roles. Runs only on
- * the server (Vite middleware in dev, a Vercel function in production) with the
- * private TURSO_* credentials.
+ * Server-side auth for the admin dashboard. Customers book without an account
+ * (server/booking.ts); only admins log in. Runs only on the server (Vite
+ * middleware in dev, a Vercel function in production) with the private
+ * TURSO_* credentials.
  *
- *   POST /api/auth/signup           { name, email, password }        → customer
- *   POST /api/auth/agent-signup     { name, email, password, code? } → first one is admin, then agents with the code
+ *   POST /api/auth/signup           { name, email, password, code? } → first one needs no code, then ADMIN_SIGNUP_CODE
  *   POST /api/auth/login            { email, password }
  *   POST /api/auth/logout
  *   GET  /api/auth/me
@@ -19,36 +21,27 @@ import { httpError, nowSeconds, optionalUrl, readCookie, readJson, routeAction, 
  *   POST /api/auth/profile          { name, email, avatar }
  *
  * Credentials live in auth_users; the name, email and avatar people see live in
- * `users` (admins, agents) or `customers`. Passwords are scrypt-hashed. Session
- * and reset tokens are random, and only their SHA-256 is stored.
+ * `users`. Passwords are scrypt-hashed. Session and reset tokens are random,
+ * and only their SHA-256 is stored.
  */
 
 const scrypt = promisify(scryptCb) as (password: string, salt: Buffer, keylen: number) => Promise<Buffer>;
 
-const COOKIE = "helpdesk_session";
+const COOKIE = "booking_session";
 const SESSION_DAYS = 30;
 const RESET_MINUTES = 60;
 const MAX_BODY_BYTES = 16 * 1024;
 
-export type Env = {
-  url?: string;
-  authToken?: string;
-  /** Lets more agents sign up once the first admin exists. Unset: agent signup closes after the first admin. */
-  agentSignupCode?: string;
-  /** Public origin for password reset links, e.g. https://support.example.com. Defaults to the request's origin. */
-  appUrl?: string;
-};
+export type Role = "admin";
 
-export type Role = "admin" | "agent" | "customer";
-
-/** `id` is the auth_users id; `profileId` is the matching users.id (staff) or customers.id. */
+/** `id` is the auth_users id; `profileId` is the matching users.id. */
 export type SessionUser = { id: number; role: Role; profileId: number; name: string; email: string; avatar: string | null };
 
-export const isStaff = (user: SessionUser | null) => user?.role === "admin" || user?.role === "agent";
+export const isAdmin = (user: SessionUser | null) => user?.role === "admin";
 
 let client: Client | null = null;
 export function getDb(env: Env) {
-  if (!env.url) throw httpError(503, "Auth is not configured: set TURSO_DATABASE_URL and TURSO_AUTH_TOKEN on the server.");
+  if (!env.url) throw httpError(503, "The server is not configured: set TURSO_DATABASE_URL and TURSO_AUTH_TOKEN.");
   client ??= createClient({ url: env.url, authToken: env.authToken });
   return client;
 }
@@ -80,20 +73,6 @@ function sameSecret(a: string, b: string) {
   return timingSafeEqual(x, y);
 }
 
-// --- tiny best-effort rate limit (per server instance) ------------------------
-
-const attempts = new Map<string, { count: number; resetAt: number }>();
-function rateLimit(key: string, limit = 10, windowMs = 15 * 60_000) {
-  const now = Date.now();
-  const entry = attempts.get(key);
-  if (!entry || entry.resetAt < now) {
-    attempts.set(key, { count: 1, resetAt: now + windowMs });
-    return;
-  }
-  entry.count += 1;
-  if (entry.count > limit) throw httpError(429, "Too many attempts. Try again in a few minutes.");
-}
-
 // --- http helpers -------------------------------------------------------------
 
 const isProduction = () => process.env.NODE_ENV === "production";
@@ -105,10 +84,7 @@ function sessionCookie(req: IncomingMessage, token: string, maxAgeSeconds: numbe
     .join("; ");
 }
 
-const clientIp = (req: IncomingMessage) =>
-  String(req.headers["x-forwarded-for"] ?? "").split(",")[0].trim() || req.socket.remoteAddress || "unknown";
-
-function appOrigin(req: IncomingMessage, env: Env) {
+export function appOrigin(req: IncomingMessage, env: Env) {
   if (env.appUrl) return env.appUrl.replace(/\/$/, "");
   const proto = String(req.headers["x-forwarded-proto"] ?? "http").split(",")[0];
   const host = String(req.headers["x-forwarded-host"] ?? req.headers.host ?? "localhost");
@@ -129,7 +105,7 @@ function checkPassword(password: string) {
   if (password.length < 8 || password.length > 200) throw httpError(400, "Use a password of at least 8 characters.");
 }
 
-const isUniqueViolation = (error: unknown) => /UNIQUE constraint failed/i.test(String((error as Error)?.message));
+export const isUniqueViolation = (error: unknown) => /UNIQUE constraint failed/i.test(String((error as Error)?.message));
 
 // --- session store ------------------------------------------------------------
 
@@ -144,13 +120,9 @@ async function createSession(db: Client, authUserId: number) {
 }
 
 const SESSION_USER_SQL = `
-  select a.id, a.role, a.email,
-         coalesce(u.id, c.id) as profile_id,
-         coalesce(u.name, c.name) as name,
-         coalesce(u.avatar, c.avatar) as avatar
+  select a.id, a.role, a.email, u.id as profile_id, u.name, u.avatar
   from auth_users a
-  left join users u on u.auth_user_id = a.id and a.role in ('admin', 'agent')
-  left join customers c on c.auth_user_id = a.id and a.role = 'customer'`;
+  join users u on u.auth_user_id = a.id`;
 
 function toSessionUser(row: Record<string, unknown> | undefined): SessionUser | null {
   if (!row || row.profile_id == null) return null;
@@ -187,22 +159,29 @@ async function requireUser(db: Client, req: IncomingMessage) {
 
 // --- routes -------------------------------------------------------------------
 
-/** Creates the login and its profile row in one batch, then starts a session. */
-async function createAccount(db: Client, req: IncomingMessage, res: ServerResponse, role: Role, body: Record<string, unknown>) {
+/** The first account becomes the admin with no code; later ones need ADMIN_SIGNUP_CODE. */
+async function signup(db: Client, req: IncomingMessage, res: ServerResponse, env: Env) {
+  const body = await readJson(req, MAX_BODY_BYTES);
+  rateLimit(`signup:${clientIp(req)}`);
+  const count = await db.execute("select count(*) as n from auth_users");
+  if (Number(count.rows[0].n) > 0) {
+    const code = str(body.code).trim();
+    if (!env.adminSignupCode) throw httpError(403, "Signup is closed. Ask your admin to set ADMIN_SIGNUP_CODE and share it with you.");
+    if (!code) throw httpError(403, "Enter the team invite code from your admin.");
+    if (!sameSecret(code, env.adminSignupCode)) throw httpError(403, "That team invite code is not valid.");
+  }
+
   const { name, email, password } = readCredentials(body);
   const existing = await db.execute({ sql: "select 1 from auth_users where email = ?", args: [email] });
   if (existing.rows.length) throw httpError(409, "An account with this email already exists. Log in instead.");
 
+  // The login and its profile row in one batch.
   const now = nowSeconds();
-  const profileSql =
-    role === "customer"
-      ? "insert into customers (auth_user_id, name, email, created_at) values (last_insert_rowid(), ?, ?, ?)"
-      : "insert into users (auth_user_id, name, email, role, created_at) values (last_insert_rowid(), ?, ?, ?, ?)";
   const [created] = await db
     .batch(
       [
-        { sql: "insert into auth_users (email, password_hash, role, created_at) values (?, ?, ?, ?) returning id", args: [email, await hashPassword(password), role, now] },
-        { sql: profileSql, args: role === "customer" ? [name, email, now] : [name, email, role, now] },
+        { sql: "insert into auth_users (email, password_hash, role, created_at) values (?, ?, 'admin', ?) returning id", args: [email, await hashPassword(password), now] },
+        { sql: "insert into users (auth_user_id, name, email, role, created_at) values (last_insert_rowid(), ?, ?, 'admin', ?)", args: [name, email, now] },
       ],
       "write",
     )
@@ -214,26 +193,6 @@ async function createAccount(db: Client, req: IncomingMessage, res: ServerRespon
   const authUserId = Number(created.rows[0].id);
   const token = await createSession(db, authUserId);
   send(res, 201, { user: await userById(db, authUserId) }, { "Set-Cookie": sessionCookie(req, token, SESSION_DAYS * 86400) });
-}
-
-async function signup(db: Client, req: IncomingMessage, res: ServerResponse) {
-  const body = await readJson(req, MAX_BODY_BYTES);
-  rateLimit(`signup:${clientIp(req)}`, 20);
-  await createAccount(db, req, res, "customer", body);
-}
-
-async function agentSignup(db: Client, req: IncomingMessage, res: ServerResponse, env: Env) {
-  const body = await readJson(req, MAX_BODY_BYTES);
-  rateLimit(`agent-signup:${clientIp(req)}`);
-  const rs = await db.execute("select count(*) as n from auth_users where role in ('admin', 'agent')");
-  const firstStaff = Number(rs.rows[0].n) === 0;
-  if (!firstStaff) {
-    const code = str(body.code).trim();
-    if (!env.agentSignupCode) throw httpError(403, "Agent signup is closed. Ask your admin to set AGENT_SIGNUP_CODE and share it with you.");
-    if (!code) throw httpError(403, "Enter the team invite code from your admin.");
-    if (!sameSecret(code, env.agentSignupCode)) throw httpError(403, "That team invite code is not valid.");
-  }
-  await createAccount(db, req, res, firstStaff ? "admin" : "agent", body);
 }
 
 async function login(db: Client, req: IncomingMessage, res: ServerResponse) {
@@ -259,15 +218,6 @@ async function logout(db: Client, req: IncomingMessage, res: ServerResponse) {
   send(res, 200, { ok: true }, { "Set-Cookie": sessionCookie(req, "", 0) });
 }
 
-/**
- * Hand the reset link to your email provider here. Until one is wired up the
- * link is logged on the server, and in development it is also returned to the
- * browser so the flow can be tested end to end.
- */
-async function deliverResetLink(email: string, link: string) {
-  console.info(`[auth] Password reset link for ${email}: ${link}`);
-}
-
 async function forgotPassword(db: Client, req: IncomingMessage, res: ServerResponse, env: Env) {
   const body = await readJson(req, MAX_BODY_BYTES);
   const email = str(body.email).trim().toLowerCase();
@@ -291,7 +241,9 @@ async function forgotPassword(db: Client, req: IncomingMessage, res: ServerRespo
       "write",
     );
     const link = `${appOrigin(req, env)}/reset-password?token=${token}`;
-    await deliverResetLink(email, link);
+    const text = `Someone asked to reset the password for this account.\n\nChoose a new one here (the link works for ${RESET_MINUTES} minutes):\n${link}\n\nIf it wasn't you, ignore this email.`;
+    await sendEmail(env, { to: email, subject: "Reset your password", text }).catch((error) => console.error("[auth] reset email failed", error));
+    // Without an email provider the link only reaches the server log, so dev also hands it to the page.
     if (!isProduction()) devResetUrl = link;
   }
   // Same answer whether or not the email exists, so it can't be used to probe accounts.
@@ -336,12 +288,11 @@ async function updateProfile(db: Client, req: IncomingMessage, res: ServerRespon
   if (!name) throw httpError(400, "Enter your name.");
   if (!validEmail(email)) throw httpError(400, "Enter a valid email.");
 
-  const table = user.role === "customer" ? "customers" : "users";
   await db
     .batch(
       [
         { sql: "update auth_users set email = ? where id = ?", args: [email, user.id] },
-        { sql: `update ${table} set name = ?, email = ?, avatar = ? where auth_user_id = ?`, args: [name, email, avatar, user.id] },
+        { sql: "update users set name = ?, email = ?, avatar = ? where auth_user_id = ?", args: [name, email, avatar, user.id] },
       ],
       "write",
     )
@@ -361,8 +312,7 @@ export async function handleAuthRequest(req: IncomingMessage, res: ServerRespons
     const db = getDb(env);
     if (action === "me" && req.method === "GET") send(res, 200, { user: await userFromSession(db, req) });
     else if (req.method !== "POST") throw httpError(405, "Method not allowed");
-    else if (action === "signup") await signup(db, req, res);
-    else if (action === "agent-signup") await agentSignup(db, req, res, env);
+    else if (action === "signup") await signup(db, req, res, env);
     else if (action === "login") await login(db, req, res);
     else if (action === "logout") await logout(db, req, res);
     else if (action === "forgot-password") await forgotPassword(db, req, res, env);

@@ -1,11 +1,11 @@
 import { ChevronLeft, ChevronRight } from "@/components/icons";
 import { Button } from "@/components/ui/button";
-import { helpdeskConfig } from "@/config/helpdesk";
+import { bookingConfig } from "@/config/booking";
 
 type PagerProps = { page: number; total: number; onPageChange: (page: number) => void };
 
 export function Pager({ page, total, onPageChange }: PagerProps) {
-  const size = helpdeskConfig.pageSize;
+  const size = bookingConfig.pageSize;
   const pages = Math.max(1, Math.ceil(total / size));
   const from = total === 0 ? 0 : page * size + 1;
   const to = Math.min(total, (page + 1) * size);

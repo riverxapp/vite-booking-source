@@ -1,37 +1,43 @@
 # RULES.md
 
-Change boundaries and placement rules for the helpdesk template.
+Change boundaries and placement rules for the booking template.
 
 ## Product shape
 
-- Vite + React SPA: public landing + auth pages, the agent dashboard under `/app`, and the customer portal under `/portal`.
-- Agent data goes through Drizzle over the Data API (`src/db/client.ts`): RiverX's hosted one, the dev proxy, or `/api/db` in production. Our own Data API accepts admin and agent sessions only.
-- Customer data goes only through `/api/portal/*` (`server/portal.ts`). Customers never get Data API access.
+- Vite + React SPA: public landing, the booking flow under `/book`, auth pages, and the admin dashboard under `/app`.
+- Admin data goes through Drizzle over the Data API (`src/db/client.ts`): RiverX's hosted one, the dev proxy, or `/api/db` in production. Our own Data API accepts admin sessions only.
+- The booking page goes only through `/api/booking/*` (`server/booking.ts`). Visitors never get Data API access, and customers have no login.
 - Auth goes through the server API (`server/auth.ts`); the browser never touches `auth_*` tables.
-- Statuses, priorities and roles live in `src/config/helpdesk.ts`, never hard-coded in pages.
-- Keep V1 minimal: no organizations, teams, SLAs, automations, tags or custom fields unless asked.
+- Statuses, currency, locale and service lengths live in `src/config/booking.ts`; scheduling rules live in `BOOKING_RULES` in `server/slots.ts`. Never hard-code them in pages.
+- Slot calculation lives only in `server/slots.ts` (pure functions). The booking page displays what the server computes and never decides availability itself.
+- Booking dates and times are wall-clock values in the business time zone (`date` + minutes from midnight). Format them with `formatDay` / `formatTime` (UTC formatters), never with `new Date(...)` in the viewer's zone.
+- One automated email in V1: the booking confirmation. Add others through `sendEmail` in `server/email.ts`.
+- Keep V1 minimal: no payments, reminders, buffers, holidays, "any staff", customer accounts or reschedule flows unless asked.
 - Dev-mode resource use is a product requirement: keep dependencies minimal (see Dependencies).
 
 ## Routing
 
-1. Define routes in `src/app/routes.tsx`. Agent pages live under `/app`, customer pages under `/portal`; both are lazy-loaded.
-2. Route-level views go in `src/pages` (portal pages are prefixed `Portal`); shell composition goes in `src/components/layout`. Both audiences share `SidebarShell`: add nav items in `nav.ts`, not a new layout.
-3. Internal links use `/app/...` (agents) or `/portal/...` (customers) paths.
-4. Gate each tree with `RequireAuth audience="staff" | "customer"`.
+1. Define routes in `src/app/routes.tsx`. Admin pages live under `/app`, the booking flow under `/book`; both are lazy-loaded.
+2. Route-level views go in `src/pages`; shell composition goes in `src/components/layout` (admin) and `src/components/site` (public, `PublicLayout`). Add admin nav items in `nav.ts`, not a new layout.
+3. Internal links use `/app/...` (admin) or `/book...` (public) paths.
+4. Gate the admin tree with `RequireAuth`. The booking flow is public.
+5. Booking flow state lives in the URL (`use-booking-params.ts`): a new step is a new parameter in `CHOICES`, so back/forward and deep links keep working.
 
 ## Data
 
 1. Tables live only in `src/db/schema.ts`; change them with `pnpm db:push` (no runtime DDL).
-2. Agent queries live in `src/features/<area>/api.ts`; components call those functions, not `db` directly. The portal's `src/features/portal/api.ts` is an HTTP client for `/api/portal/*`, never Drizzle.
-3. Anything a customer sees is queried in `server/portal.ts`, scoped to their `customers.id`, and never includes messages with `is_internal = 1`.
-4. Use `db.batch([...])` for multi-step writes, never `db.transaction()`.
-5. Paginate lists (`helpdeskConfig.pageSize`); the Data API caps results at 1,000 rows.
-6. Never import `@libsql/client` or read `TURSO_*` from `src/`. They belong to `server/`, `scripts/`, `api/` and `drizzle.config.ts` only.
-7. The SQL guard for our own Data API lives only in `server/db.ts`. Change it there so the dev proxy and `/api/db` stay identical.
+2. Admin queries live in `src/features/<area>/api.ts`; components call those functions, not `db` directly. The booking page's `src/features/booking/api.ts` is an HTTP client for `/api/booking/*`, never Drizzle.
+3. Anything the public booking page sees is queried in `server/booking.ts` with fixed, parameterised queries. It never returns customers or other people's bookings; free times are the only trace of existing bookings.
+4. New bookings are inserted only by `server/booking.ts`, with the overlap guard in the same statement. Don't add another code path that writes `bookings` rows with `status = 'confirmed'` without it.
+5. Use `db.batch([...])` for multi-step writes, never `db.transaction()`.
+6. Paginate lists (`bookingConfig.pageSize`); the Data API caps results at 1,000 rows.
+7. Never import `@libsql/client` or read `TURSO_*` from `src/`. They belong to `server/`, `scripts/`, `api/` and `drizzle.config.ts` only.
+8. Rows that bookings reference (services, staff) are hidden or deactivated, not deleted, once they have bookings.
+9. The SQL guard for our own Data API lives only in `server/db.ts`. Change it there so the dev proxy and `/api/db` stay identical.
 
 ## Components
 
-1. Reusable primitives belong in `src/components/ui`; helpdesk building blocks in `src/components/common`; charts in `src/components/charts`; icons in `src/components/icons.ts`.
+1. Reusable primitives belong in `src/components/ui`; shared building blocks in `src/components/common`; charts in `src/components/charts`; icons in `src/components/icons.ts`.
 2. Use named exports. Keep components small.
 3. Follow `DESIGN.md` for every visual decision.
 
@@ -50,7 +56,7 @@ Dev mode runs in shared workspaces, so the dependency list is kept deliberately 
 
 1. Put request handling in `server/`. Files in `api/` (Vercel functions) and `scripts/local-*.ts` (Vite middleware) only wire env and auth to it.
 2. Relative imports in `api/` and `server/` use the `.js` extension (`"../../server/auth.js"`). Vercel runs them as native ES modules, and an extensionless import crashes the function at load.
-3. Every `/api/*` route other than `/api/auth/*` and `GET /api/portal/branding` must check the session (`userFromSession` in `server/auth.ts`) and the role (`isStaff`, or `role === "customer"`) before touching data.
+3. Every `/api/*` route other than `/api/auth/*` and `/api/booking/*` must check the session (`userFromSession` in `server/auth.ts`) and the role (`isAdmin`) before touching data. `/api/booking/*` is public by design: keep it to the reads the booking page needs and the one rate-limited write.
 
 ## Env and HTTP
 

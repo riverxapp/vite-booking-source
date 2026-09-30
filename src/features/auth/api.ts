@@ -1,22 +1,22 @@
 import { apiRequest } from "@/lib/api";
 
-/** Talks to the server auth API (server/auth.ts). The session is an httpOnly cookie. */
+/** Talks to the server auth API (server/auth.ts). The session is an httpOnly cookie. Only admins log in. */
 
-export type Role = "admin" | "agent" | "customer";
+export type Role = "admin";
 
-/** `profileId` is users.id for admins and agents, customers.id for customers. */
+/** `profileId` is users.id. */
 export type AuthUser = { id: number; role: Role; profileId: number; name: string; email: string; avatar: string | null };
 
-export type SignUpInput = { name: string; email: string; password: string };
-export type AgentSignUpInput = SignUpInput & { code?: string };
+/** `code` is the team invite code; the very first account needs none. */
+export type SignUpInput = { name: string; email: string; password: string; code?: string };
 export type ProfileInput = { name: string; email: string; avatar: string };
 
 type UserResponse = { user: AuthUser | null };
 
-export const isStaff = (user: AuthUser | null) => user?.role === "admin" || user?.role === "agent";
+export const isAdmin = (user: AuthUser | null) => user?.role === "admin";
 
-/** Where each role lands after logging in. */
-export const homeFor = (user: AuthUser) => (isStaff(user) ? "/app" : "/portal");
+/** Where a signed-in admin lands. */
+export const HOME = "/app";
 
 export async function fetchSession() {
   const { user } = await apiRequest<UserResponse>("auth/me");
@@ -30,11 +30,6 @@ export async function signIn(email: string, password: string) {
 
 export async function signUp(input: SignUpInput) {
   const { user } = await apiRequest<UserResponse>("auth/signup", { method: "POST", body: input });
-  return user!;
-}
-
-export async function signUpAgent(input: AgentSignUpInput) {
-  const { user } = await apiRequest<UserResponse>("auth/agent-signup", { method: "POST", body: input });
   return user!;
 }
 

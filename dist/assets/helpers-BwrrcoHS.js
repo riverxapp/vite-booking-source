@@ -1,1 +1,0 @@
-import{x as s,N as t,z as i}from"./index-CEXjxNLA.js";function u(n){return s`count(${s.raw("*")})`.mapWith(Number)}function c(n,a){if(!(n!=null&&n.trim()))return;const o=t(n);return i(...a.map(r=>s`${r} like ${o} escape '\\'`))}export{u as c,c as s};

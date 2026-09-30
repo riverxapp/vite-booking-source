@@ -1,4 +1,4 @@
-const DEFAULT_APP_NAME = "RiverX Helpdesk";
+const DEFAULT_APP_NAME = "RiverX Booking";
 const DEFAULT_API_BASE_URL = "/api";
 // Production builds outside RiverX use our own Data API function (api/db/[action].ts).
 const DEFAULT_DB_URL = import.meta.env.PROD ? "/api/db" : "";

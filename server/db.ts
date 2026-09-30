@@ -8,7 +8,7 @@ export { send };
  * The Data API contract (see DATABASE.md) served from our own server with the
  * private TURSO_* credentials. Used by the Vite dev proxy (scripts/local-db-proxy.ts)
  * and the Vercel function (api/db/[action].ts); each caller does its own auth first
- * and lets only staff (admin, agent) sessions through. Customers use server/portal.ts.
+ * and lets only admin sessions through. The public booking page uses server/booking.ts.
  *
  *   GET  {base}/health
  *   POST {base}/query  { sql, params?, method? }

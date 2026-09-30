@@ -10,7 +10,7 @@ export function BrandMark({ to = "/" }: { to?: string }) {
         <img src={logoUrl} alt="" className="h-7 w-7 shrink-0 object-contain" />
       ) : (
         <span className="flex h-7 w-7 shrink-0 items-center justify-center bg-primary font-mono text-[0.72rem] font-semibold text-primary-foreground">
-          {initials(name) || "H"}
+          {initials(name) || "B"}
         </span>
       )}
       <span className="truncate text-[0.95rem] font-bold tracking-tight">{name}</span>

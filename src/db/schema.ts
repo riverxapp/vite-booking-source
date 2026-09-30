@@ -1,13 +1,17 @@
-import { sqliteTable, text, integer, index, uniqueIndex } from "drizzle-orm/sqlite-core";
+import { sqliteTable, text, integer, index, uniqueIndex, primaryKey } from "drizzle-orm/sqlite-core";
 
 const createdAt = integer("created_at", { mode: "timestamp" })
   .notNull()
   .$defaultFn(() => new Date());
 
-// Status, priority and role values are plain text keys. Their labels live in
-// src/config/helpdesk.ts, so no seed data is needed.
+// Status values are plain text keys. Their labels live in src/config/booking.ts,
+// so no seed data is needed.
+//
+// Booking times are wall-clock times in the business time zone
+// (business_settings.timezone): a `date` string (YYYY-MM-DD) plus minutes from
+// midnight. Slot maths never has to convert time zones.
 
-/** Staff: admins and agents. One row per staff login (auth_users). */
+/** Admin logins. One row per auth_users row. */
 export const users = sqliteTable(
   "users",
   {
@@ -18,81 +22,123 @@ export const users = sqliteTable(
     name: text("name").notNull(),
     email: text("email").notNull(),
     avatar: text("avatar"),
-    role: text("role").notNull().default("agent"),
+    role: text("role").notNull().default("admin"),
     createdAt,
   },
   (t) => [uniqueIndex("users_auth_user_idx").on(t.authUserId), uniqueIndex("users_email_idx").on(t.email)],
 );
 
-/** People who open tickets. `authUserId` is set once they have a portal login. */
+/** What can be booked. Inactive services stay on old bookings but leave the booking page. */
+export const services = sqliteTable(
+  "services",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    name: text("name").notNull(),
+    description: text("description"),
+    durationMinutes: integer("duration_minutes").notNull(),
+    // Minor units (cents), so prices never go through floating point.
+    priceCents: integer("price_cents").notNull().default(0),
+    active: integer("active", { mode: "boolean" }).notNull().default(true),
+    createdAt,
+  },
+  (t) => [index("services_name_idx").on(t.name)],
+);
+
+/** The people customers book with. Staff don't log in. */
+export const staff = sqliteTable(
+  "staff",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    name: text("name").notNull(),
+    email: text("email").notNull(),
+    active: integer("active", { mode: "boolean" }).notNull().default(true),
+    createdAt,
+  },
+  (t) => [index("staff_name_idx").on(t.name)],
+);
+
+/** Which services each staff member performs. */
+export const staffServices = sqliteTable(
+  "staff_services",
+  {
+    staffId: integer("staff_id")
+      .notNull()
+      .references(() => staff.id, { onDelete: "cascade" }),
+    serviceId: integer("service_id")
+      .notNull()
+      .references(() => services.id, { onDelete: "cascade" }),
+  },
+  (t) => [primaryKey({ columns: [t.staffId, t.serviceId] }), index("staff_services_service_idx").on(t.serviceId)],
+);
+
+/** Weekly working hours: at most one range per staff member and weekday (0 = Sunday). */
+export const availability = sqliteTable(
+  "availability",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    staffId: integer("staff_id")
+      .notNull()
+      .references(() => staff.id, { onDelete: "cascade" }),
+    weekday: integer("weekday").notNull(),
+    startMinute: integer("start_minute").notNull(),
+    endMinute: integer("end_minute").notNull(),
+  },
+  (t) => [uniqueIndex("availability_staff_weekday_idx").on(t.staffId, t.weekday)],
+);
+
+/** People who have booked. Matched by email: booking again updates their name and phone. */
 export const customers = sqliteTable(
   "customers",
   {
     id: integer("id").primaryKey({ autoIncrement: true }),
-    authUserId: integer("auth_user_id").references(() => authUsers.id, { onDelete: "set null" }),
     name: text("name").notNull(),
     email: text("email").notNull(),
-    avatar: text("avatar"),
+    phone: text("phone"),
     createdAt,
   },
-  (t) => [uniqueIndex("customers_auth_user_idx").on(t.authUserId), uniqueIndex("customers_email_idx").on(t.email), index("customers_name_idx").on(t.name)],
+  (t) => [uniqueIndex("customers_email_idx").on(t.email), index("customers_name_idx").on(t.name)],
 );
 
-export const tickets = sqliteTable(
-  "tickets",
+export const bookings = sqliteTable(
+  "bookings",
   {
     id: integer("id").primaryKey({ autoIncrement: true }),
-    // The number people see (#1042). Assigned by the server when a customer opens a ticket.
-    ticketNumber: integer("ticket_number").notNull(),
-    subject: text("subject").notNull(),
+    // The code people see ("K7F3QXPA"). Assigned by the server (server/booking.ts).
+    reference: text("reference").notNull(),
+    serviceId: integer("service_id")
+      .notNull()
+      .references(() => services.id),
+    staffId: integer("staff_id")
+      .notNull()
+      .references(() => staff.id),
     customerId: integer("customer_id")
       .notNull()
-      .references(() => customers.id, { onDelete: "cascade" }),
-    status: text("status").notNull().default("open"),
-    priority: text("priority").notNull().default("normal"),
-    assigneeId: integer("assignee_id").references(() => users.id, { onDelete: "set null" }),
+      .references(() => customers.id),
+    date: text("date").notNull(),
+    startMinute: integer("start_minute").notNull(),
+    endMinute: integer("end_minute").notNull(),
+    status: text("status").notNull().default("confirmed"),
+    notes: text("notes"),
     createdAt,
-    updatedAt: integer("updated_at", { mode: "timestamp" })
-      .notNull()
-      .$defaultFn(() => new Date())
-      .$onUpdateFn(() => new Date()),
   },
   (t) => [
-    uniqueIndex("tickets_number_idx").on(t.ticketNumber),
-    index("tickets_customer_idx").on(t.customerId),
-    index("tickets_assignee_idx").on(t.assigneeId),
-    index("tickets_status_updated_idx").on(t.status, t.updatedAt),
+    uniqueIndex("bookings_reference_idx").on(t.reference),
+    index("bookings_staff_date_idx").on(t.staffId, t.date),
+    index("bookings_date_idx").on(t.date, t.startMinute),
+    index("bookings_customer_idx").on(t.customerId),
+    index("bookings_service_idx").on(t.serviceId),
   ],
 );
 
-/**
- * One row per reply or internal note. `senderId` points at customers.id or
- * users.id depending on `senderType`. Internal notes are agent-only: the
- * customer portal API (server/portal.ts) never returns them.
- */
-export const messages = sqliteTable(
-  "messages",
-  {
-    id: integer("id").primaryKey({ autoIncrement: true }),
-    ticketId: integer("ticket_id")
-      .notNull()
-      .references(() => tickets.id, { onDelete: "cascade" }),
-    senderType: text("sender_type").notNull(),
-    senderId: integer("sender_id").notNull(),
-    message: text("message").notNull(),
-    isInternal: integer("is_internal", { mode: "boolean" }).notNull().default(false),
-    createdAt,
-  },
-  (t) => [index("messages_ticket_idx").on(t.ticketId, t.createdAt)],
-);
-
-/** Single row (id = 1): the branding shown on the portal, login pages and sidebar. */
-export const helpdeskSettings = sqliteTable("helpdesk_settings", {
+/** Single row (id = 1): branding, the booking page intro and the business time zone. */
+export const businessSettings = sqliteTable("business_settings", {
   id: integer("id").primaryKey(),
   companyName: text("company_name"),
   logoUrl: text("logo_url"),
-  // Plain text shown at the top of the customer portal dashboard.
-  portalIntro: text("portal_intro"),
+  // Plain text shown on the landing page and the first booking step.
+  bookingIntro: text("booking_intro"),
+  // IANA name, e.g. "Europe/London". Availability and bookings are in this zone. Null means UTC.
+  timezone: text("timezone"),
 });
 
 // Auth tables. Read and written ONLY by the server (server/auth.ts).
@@ -139,8 +185,10 @@ export const authPasswordResets = sqliteTable(
 );
 
 export type User = typeof users.$inferSelect;
+export type Service = typeof services.$inferSelect;
+export type NewService = typeof services.$inferInsert;
+export type Staff = typeof staff.$inferSelect;
+export type Availability = typeof availability.$inferSelect;
 export type Customer = typeof customers.$inferSelect;
-export type Ticket = typeof tickets.$inferSelect;
-export type Message = typeof messages.$inferSelect;
-export type NewMessage = typeof messages.$inferInsert;
-export type HelpdeskSettings = typeof helpdeskSettings.$inferSelect;
+export type Booking = typeof bookings.$inferSelect;
+export type BusinessSettings = typeof businessSettings.$inferSelect;

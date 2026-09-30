@@ -5,7 +5,7 @@ import { EmptyState } from "@/components/common/States";
 
 export function NotFoundPage() {
   const { pathname } = useLocation();
-  const home = pathname.startsWith("/app") ? { to: "/app", label: "Go to inbox" } : pathname.startsWith("/portal") ? { to: "/portal", label: "Go to dashboard" } : { to: "/", label: "Go home" };
+  const home = pathname.startsWith("/app") ? { to: "/app", label: "Go to dashboard" } : { to: "/", label: "Go home" };
   return (
     <div className="p-6">
       <EmptyState

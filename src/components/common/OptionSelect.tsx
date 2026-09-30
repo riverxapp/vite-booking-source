@@ -1,5 +1,5 @@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import type { Option } from "@/config/helpdesk";
+import type { Option } from "@/config/booking";
 import { cn } from "@/lib/utils";
 
 const ALL = "__all__";

@@ -1,5 +1,5 @@
 import { createContext } from "react";
-import type { AgentSignUpInput, AuthUser, ProfileInput, SignUpInput } from "./api";
+import type { AuthUser, ProfileInput, SignUpInput } from "./api";
 
 export type AuthContextValue = {
   user: AuthUser | null;
@@ -9,7 +9,6 @@ export type AuthContextValue = {
   error: string | null;
   signIn: (email: string, password: string) => Promise<AuthUser>;
   signUp: (input: SignUpInput) => Promise<AuthUser>;
-  signUpAgent: (input: AgentSignUpInput) => Promise<AuthUser>;
   resetPassword: (token: string, password: string) => Promise<AuthUser>;
   updateProfile: (input: ProfileInput) => Promise<AuthUser>;
   signOut: () => Promise<void>;

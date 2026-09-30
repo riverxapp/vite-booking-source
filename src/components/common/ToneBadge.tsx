@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import type { Option, Tone } from "@/config/helpdesk";
+import type { Option, Tone } from "@/config/booking";
 
 // Flat tint fill + 1px border. The label always carries the meaning; tone only reinforces it.
 const toneClasses: Record<Tone, string> = {

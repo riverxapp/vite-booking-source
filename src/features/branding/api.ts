@@ -1,18 +1,19 @@
 import { db } from "@/db/client";
-import { helpdeskSettings } from "@/db/schema";
+import { businessSettings } from "@/db/schema";
 import { apiRequest } from "@/lib/api";
 
-export type Branding = { companyName: string | null; logoUrl: string | null; portalIntro: string | null };
+export type Branding = { companyName: string | null; logoUrl: string | null; bookingIntro: string | null; timezone: string };
 
-/** Public: the portal, login pages and sidebar all read it, signed in or not. */
+/** Public: the booking page, login pages and sidebar all read it, signed in or not. */
 export async function fetchBranding() {
-  return apiRequest<Branding>("portal/branding");
+  return apiRequest<Branding>("booking/branding");
 }
 
-/** Staff-only write through the Data API. The UI offers it to admins. */
-export async function saveBranding({ companyName, logoUrl, portalIntro }: Branding) {
+/** Admin-only write through the Data API. */
+export async function saveBranding({ companyName, logoUrl, bookingIntro, timezone }: Omit<Branding, "timezone"> & { timezone: string | null }) {
+  const values = { companyName, logoUrl, bookingIntro, timezone };
   await db
-    .insert(helpdeskSettings)
-    .values({ id: 1, companyName, logoUrl, portalIntro })
-    .onConflictDoUpdate({ target: helpdeskSettings.id, set: { companyName, logoUrl, portalIntro } });
+    .insert(businessSettings)
+    .values({ id: 1, ...values })
+    .onConflictDoUpdate({ target: businessSettings.id, set: values });
 }

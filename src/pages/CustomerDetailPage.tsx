@@ -5,16 +5,19 @@ import { Avatar } from "@/components/common/Avatar";
 import { PageHeader } from "@/components/common/PageHeader";
 import { RecordNotFound } from "@/components/common/RecordNotFound";
 import { ErrorState, LoadingRows } from "@/components/common/States";
-import { ToneBadge } from "@/components/common/ToneBadge";
-import { helpdeskConfig } from "@/config/helpdesk";
-import { getCustomer, listCustomerTickets } from "@/features/customers/api";
+import { listBookings } from "@/features/bookings/api";
+import { BookingList } from "@/features/bookings/BookingList";
+import { getCustomer } from "@/features/customers/api";
 import { useAsync } from "@/hooks/use-async";
-import { formatDate, formatRelative, formatTicketNumber } from "@/lib/format";
+import { formatDate } from "@/lib/format";
+
+const HISTORY_LIMIT = 200;
 
 export function CustomerDetailPage() {
   const id = Number(useParams().id);
   const customer = useAsync(() => getCustomer(id), [id]);
-  const tickets = useAsync(() => listCustomerTickets(id), [id]);
+  // Booking history, newest first. `today` is irrelevant for "all".
+  const history = useAsync(() => listBookings({ when: "all", today: "", customerId: id, pageSize: HISTORY_LIMIT }), [id]);
   const c = customer.data;
 
   if (customer.error) return <div className="p-6"><ErrorState error={customer.error} onRetry={customer.reload} /></div>;
@@ -32,39 +35,27 @@ export function CustomerDetailPage() {
         }
         title={
           <span className="flex items-center gap-3">
-            <Avatar name={c.name} src={c.avatar} className="h-10 w-10 text-[0.8rem]" />
+            <Avatar name={c.name} className="h-10 w-10 text-[0.8rem]" />
             <span className="truncate">{c.name}</span>
           </span>
         }
         description={
           <span className="font-mono text-xs">
-            {c.email} · customer since {formatDate(c.createdAt)}
+            <a href={`mailto:${c.email}`} className="hover:text-brand">{c.email}</a>
+            {c.phone ? <> · <a href={`tel:${c.phone}`} className="hover:text-brand">{c.phone}</a></> : null} · first booked {formatDate(c.createdAt)}
           </span>
         }
       />
       <div className="max-w-4xl p-4 sm:p-6">
         <Card>
-          <CardHeader><CardTitle>Tickets ({tickets.data?.length ?? 0})</CardTitle></CardHeader>
+          <CardHeader><CardTitle>Booking history ({history.data?.total ?? 0})</CardTitle></CardHeader>
           <CardContent className="p-0">
-            {tickets.error ? (
-              <div className="p-4"><ErrorState error={tickets.error} onRetry={tickets.reload} /></div>
-            ) : !tickets.data ? (
+            {history.error ? (
+              <div className="p-4"><ErrorState error={history.error} onRetry={history.reload} /></div>
+            ) : !history.data ? (
               <LoadingRows rows={3} />
-            ) : tickets.data.length ? (
-              <ul className="divide-y">
-                {tickets.data.map((t) => (
-                  <li key={t.id}>
-                    <Link to={`/app/tickets/${t.ticketNumber}`} className="flex items-center gap-3 px-4 py-3 hover:bg-accent">
-                      <span className="w-14 shrink-0 font-mono text-xs tabular-nums text-muted-foreground">{formatTicketNumber(t.ticketNumber)}</span>
-                      <span className="min-w-0 flex-1 truncate text-sm font-medium">{t.subject}</span>
-                      <span className="hidden font-mono text-xs text-muted-foreground sm:inline">{formatRelative(t.updatedAt)}</span>
-                      <ToneBadge options={helpdeskConfig.statuses} value={t.status} />
-                    </Link>
-                  </li>
-                ))}
-              </ul>
             ) : (
-              <p className="px-4 py-4 text-sm text-muted-foreground">No tickets yet.</p>
+              <BookingList bookings={history.data.rows} show="staff" empty="No bookings yet." />
             )}
           </CardContent>
         </Card>

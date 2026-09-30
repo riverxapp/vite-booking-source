@@ -1,1 +1,0 @@
-import{al as e}from"./index-CEXjxNLA.js";async function r(){const{tickets:t}=await e("portal/tickets");return t}async function n(t){return e(`portal/ticket?number=${t}`)}async function i(t){return e("portal/tickets",{method:"POST",body:t})}async function o(t,a){await e("portal/reply",{method:"POST",body:{number:t,message:a}})}export{i as c,n as g,r as l,o as r};

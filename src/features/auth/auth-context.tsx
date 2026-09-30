@@ -42,7 +42,6 @@ export function AuthProviderRoot({ children }: { children: ReactNode }) {
       error,
       signIn: adopt(authApi.signIn),
       signUp: adopt(authApi.signUp),
-      signUpAgent: adopt(authApi.signUpAgent),
       resetPassword: adopt(authApi.resetPassword),
       updateProfile: adopt(authApi.updateProfile),
       signOut,

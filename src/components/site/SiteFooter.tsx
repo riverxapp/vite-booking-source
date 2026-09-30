@@ -10,9 +10,8 @@ export function SiteFooter() {
           © {new Date().getFullYear()} {name}
         </p>
         <nav className="flex gap-5" aria-label="Footer">
-          <Link to="/login" className="rx-meta hover:text-foreground">Log in</Link>
-          <Link to="/signup" className="rx-meta hover:text-foreground">Sign up</Link>
-          <Link to="/agent/signup" className="rx-meta hover:text-foreground">Agent signup</Link>
+          <Link to="/book" className="rx-meta hover:text-foreground">Book an appointment</Link>
+          <Link to="/login" className="rx-meta hover:text-foreground">Team login</Link>
         </nav>
       </div>
     </footer>

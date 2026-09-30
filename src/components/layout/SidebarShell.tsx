@@ -83,7 +83,7 @@ function SidebarBody({ home, section, items, secondaryItems }: ShellProps) {
   );
 }
 
-/** Sidebar layout shared by the agent dashboard (AppLayout) and the customer portal (PortalLayout). */
+/** The admin dashboard shell (AppLayout): fixed sidebar on desktop, a sheet on mobile. */
 export function SidebarShell(props: ShellProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const location = useLocation();

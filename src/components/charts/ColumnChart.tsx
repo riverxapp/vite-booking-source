@@ -6,7 +6,7 @@ type ColumnChartProps = {
   /** Names the series; used for the accessible table caption. */
   title: string;
   data: ColumnDatum[];
-  /** Singular / plural unit for tooltips, e.g. ["ticket", "tickets"]. */
+  /** Singular / plural unit for tooltips, e.g. ["booking", "bookings"]. */
   unit: [string, string];
 };
 

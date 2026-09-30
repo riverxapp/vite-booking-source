@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { FormField } from "@/components/common/Field";
 import { AuthCard, FormError } from "@/components/site/AuthCard";
-import { homeFor } from "@/features/auth/api";
+import { HOME } from "@/features/auth/api";
 import { useAuth } from "@/features/auth/use-auth";
 import { useForm } from "@/hooks/use-form";
 import { errorMessage } from "@/lib/format";
@@ -21,8 +21,8 @@ export function ResetPasswordPage() {
     if (password !== confirm) return setError("The two passwords don’t match.");
     setError(null);
     try {
-      const user = await resetPassword(token, password);
-      navigate(homeFor(user), { replace: true });
+      await resetPassword(token, password);
+      navigate(HOME, { replace: true });
     } catch (e) {
       setError(errorMessage(e));
     }

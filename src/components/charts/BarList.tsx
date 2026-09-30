@@ -5,7 +5,7 @@ export type BarDatum = { label: string; value: number };
  * label and the value sit beside every bar, so identity never rests on colour
  * and no tooltip is needed; it is a real list for screen readers.
  */
-export function BarList({ data, total }: { data: BarDatum[]; /** Bars scale to this (e.g. all tickets). */ total: number }) {
+export function BarList({ data, total }: { data: BarDatum[]; /** Bars scale to this (e.g. all bookings). */ total: number }) {
   const max = Math.max(1, total);
   return (
     <ul className="space-y-3">

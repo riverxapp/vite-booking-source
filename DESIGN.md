@@ -1,7 +1,7 @@
 # DESIGN.md
 
-Design contract for this helpdesk template. Every page — landing, auth, the
-`/app` agent dashboard and the `/portal` customer portal — follows it. If you add a visual rule, add it here.
+Design contract for this booking template. Every page — landing, the `/book`
+flow, auth and the `/app` admin dashboard — follows it. If you add a visual rule, add it here.
 
 ## The idea
 
@@ -21,7 +21,7 @@ carries attention, and two type voices keep people-text and machine-text apart.
 | Radius, shadow, font, color remap for Tailwind | `tailwind.config.js` |
 | Helper classes (`rx-meta`, `rx-mark`, `rx-bracket`) | `src/styles/globals.css` |
 | Restyled primitives | `src/components/ui/{button,card,table,input,textarea,select,sheet,…}.tsx` |
-| Shared helpdesk pieces | `src/components/common/` |
+| Shared pieces | `src/components/common/` |
 
 Tokens keep their shadcn names (`primary`, `muted`, `accent`, …) but are
 remapped onto this palette, so primitives pick the system up by cascade. Read
@@ -68,7 +68,7 @@ Rules:
 
 - **Hairlines before fills. Fills before shadows. Shadows almost never.**
 - `border-rule-hard` marks the single primary object in a view (the landing
-  product preview). One per screen.
+  service menu). One per screen.
 - Prefer flush grids that share a 1px seam (`gap-px border bg-[var(--rule)]`
   with `bg-card` cells) over spaced floating cards. Loading skeleton rows use this.
 - Backgrounds are solid palette values — white in light mode. No gradients,
@@ -82,7 +82,7 @@ Two voices, never mixed.
 - **Human — Manrope** (`font-sans`): headlines, prose, buttons, names.
   700 for headings, 400 for body.
 - **Machine — JetBrains Mono** (`font-mono`): anything the system computed or
-  identifies — ticket numbers, counts, percentages, dates, timestamps, emails,
+  identifies — booking references, times, durations, prices, counts, percentages, dates, timestamps, emails,
   URLs, IDs, status and priority labels, nav items, table headers, eyebrows,
   chart axes.
 
@@ -112,20 +112,24 @@ to brand plus the ring. Machine text (email, URL) inputs use `font-mono`.
 
 **Forms** — a stack of ruled bands: header, fields, footer, each split by one
 1px rule with the same horizontal padding (`site/AuthCard.tsx`,
-`common/SettingsCard.tsx`, the new-ticket card). Errors and results are
+`common/SettingsCard.tsx`, the booking details step, the service sheet). Errors and results are
 stated in words (mono, next to the action), then coloured.
 
 **Cards** (`ui/card.tsx`) — square, 1px rule, no shadow. `CardHeader` is a
 ruled band holding a mono `CardTitle`; `CardContent` pads `p-4`.
 
-**Conversation** (`features/tickets/Thread.tsx`) — an email thread, oldest
-first. Each message is a square ruled panel: a header band (square avatar,
-name, sender kind in mono, relative time) over the body. Agent replies add a
-2px brand left rule. **Internal notes** use a dashed amber border and a faint
-amber tint, with a lock glyph and the words "Internal note · agents only", so
-they can never be mistaken for a reply. The reply box (`ReplyBox.tsx`) is one
-ruled panel whose border turns brand on focus; "Send reply" is primary, "Add
-internal note" is outline.
+**Booking flow** (`features/booking/`) — one ruled card per step under a
+five-cell stepper (`Stepper.tsx`): the current cell is `bg-brand-soft` with a
+2px brand bottom rule, finished cells show a check and go back on click.
+Choices in lists are full-width rows (`ChoiceButton.tsx`); the selected one
+takes `bg-brand-soft` and a 2px brand left rule. The date step is a flush
+`gap-px` month grid: open days are mono numbers with "n free" under them,
+unavailable days are muted and struck through, the chosen day is a
+`bg-primary` fill. Times are 4px mono buttons grouped morning / afternoon /
+evening, with the time zone stated in words under them. A summary card
+(`BookingSummary.tsx`) sits to the right on desktop and below on mobile, each
+row with a bracket "Change". The confirmation is a single card with a 2px
+brand left rule, the reference in spaced mono.
 
 **Avatars** (`common/Avatar.tsx`) — square, 1px rule, image or mono initials on
 `bg-secondary`. No circles.
@@ -139,7 +143,7 @@ The label carries the meaning; tone only reinforces it.
 **Navigation**
 - Public header: surface bar, one bottom rule, logo left, mono uppercase links,
   active link underlined 2px brand, one primary CTA.
-- Sidebar (`layout/SidebarShell.tsx`, shared by agents and customers): fixed,
+- Sidebar (`layout/SidebarShell.tsx`, the admin dashboard): fixed,
   1px right rule, sections split by rules; a sheet from the left on mobile.
   Active row: `bg-brand-soft` with a 2px brand left rule.
 
@@ -169,17 +173,18 @@ surface; skeleton rows share 1px seams.
 
 - **Landing** (`/`): header, one hero — eyebrow, headline, one line of
   support, one primary action plus a bracket "Log in" link, and the product
-  preview (`site/ProductPreview.tsx`) — then footer. Solid `bg-background`.
-- **Auth** (`/login`, `/signup`, `/agent/signup`, `/forgot-password`,
-  `/reset-password`): a single square card (`site/AuthCard.tsx`) with ruled
-  header / fields / footer bands, centred on the solid ground.
-- **Agent dashboard** (`/app/*`): sidebar shell at higher density. Every page
+  live service menu (`ServiceMenu` in `pages/LandingPage.tsx`) — then footer. Solid `bg-background`.
+- **Booking** (`/book`, `/book/confirmed`): header band (eyebrow, title),
+  stepper, then the step card and the summary card. Solid `bg-background`.
+- **Auth** (`/login`, `/signup`, `/forgot-password`, `/reset-password`): a
+  single square card (`site/AuthCard.tsx`) with ruled header / fields / footer
+  bands, centred on the solid ground.
+- **Admin dashboard** (`/app/*`): sidebar shell at higher density. Every page
   opens with `PageHeader` (eyebrow → title → mono description → actions).
-  Detail pages use a breadcrumb eyebrow (`Tickets / #1042`).
-- **Customer portal** (`/portal/*`): the same sidebar shell as the agent
-  dashboard (`layout/SidebarShell.tsx`) with Dashboard, Tickets and Settings.
-  The dashboard opens with the admin's intro message in a panel with a 2px
-  brand left rule, then stat tiles, charts and recent tickets.
+  Detail pages use a breadcrumb eyebrow (`Bookings / K7F3QXPA`). The
+  dashboard is stat tiles, today's schedule, what's coming up and two charts.
+  Create/edit forms for small records (services, new staff) open in a
+  right-hand sheet; staff get a full page because they have hours.
 
 ## Motion
 
@@ -203,5 +208,5 @@ Before shipping a new surface, grep it for literal hex, `#fff`, `bg-white`,
 - Visible focus on every control (the ring token survives both themes).
 - 40–44px touch targets for key mobile actions.
 - Never colour alone: status pairs colour with a label, live state with a dot + word.
-- Semantic nav and form labels; internal notes are labelled in words, not only by colour.
+- Semantic nav and form labels; unavailable days say so in their label, not only by colour or strike-through.
 - Charts are never the only copy of their numbers: columns are focusable with a tooltip, and a visually hidden table (or on-bar labels) carries the same data.

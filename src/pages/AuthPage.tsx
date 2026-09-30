@@ -4,28 +4,27 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { FormField } from "@/components/common/Field";
 import { AuthCard, FormError } from "@/components/site/AuthCard";
-import { homeFor, isStaff, type AuthUser } from "@/features/auth/api";
+import { HOME } from "@/features/auth/api";
 import { useAuth } from "@/features/auth/use-auth";
 import { useForm } from "@/hooks/use-form";
 import { errorMessage } from "@/lib/format";
 
-type Mode = "login" | "signup" | "agent-signup";
+type Mode = "login" | "signup";
 type Values = { name: string; email: string; password: string; code: string };
 
 const copy = {
-  login: { eyebrow: "Welcome back", title: "Log in", submit: "Log in" },
-  signup: { eyebrow: "Get help", title: "Create your account", submit: "Create account" },
-  "agent-signup": { eyebrow: "Support team", title: "Join as an agent", submit: "Create agent account" },
+  login: { eyebrow: "Team", title: "Log in", submit: "Log in" },
+  signup: { eyebrow: "Team", title: "Create an admin account", submit: "Create account" },
 } as const;
 
-/** `next` is honoured only when it points into the signed-in user's own area. */
-function destination(user: AuthUser, next: string | null) {
-  const area = isStaff(user) ? "/app" : "/portal";
-  return next && (next === area || next.startsWith(`${area}/`) || next.startsWith(`${area}?`)) ? next : homeFor(user);
+/** `next` is honoured only when it points into the admin dashboard. */
+function destination(next: string | null) {
+  return next && (next === HOME || next.startsWith(`${HOME}/`) || next.startsWith(`${HOME}?`)) ? next : HOME;
 }
 
+/** Only the team logs in: customers book as guests on /book. */
 export function AuthPage({ mode }: { mode: Mode }) {
-  const { user, loading, error: sessionError, signIn, signUp, signUpAgent } = useAuth();
+  const { user, loading, error: sessionError, signIn, signUp } = useAuth();
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const next = params.get("next");
@@ -34,18 +33,14 @@ export function AuthPage({ mode }: { mode: Mode }) {
   const text = copy[mode];
   const withNext = (path: string) => (next ? `${path}?next=${encodeURIComponent(next)}` : path);
 
-  if (!loading && user) return <Navigate to={destination(user, next)} replace />;
+  if (!loading && user) return <Navigate to={destination(next)} replace />;
 
   const onSubmit = handleSubmit(async ({ name, email, password, code }) => {
     setError(null);
     try {
-      const signedIn =
-        mode === "login"
-          ? await signIn(email, password)
-          : mode === "signup"
-            ? await signUp({ name, email, password })
-            : await signUpAgent({ name, email, password, code: code.trim() || undefined });
-      navigate(destination(signedIn, next), { replace: true });
+      if (mode === "login") await signIn(email, password);
+      else await signUp({ name, email, password, code: code.trim() || undefined });
+      navigate(destination(next), { replace: true });
     } catch (e) {
       setError(errorMessage(e));
     }
@@ -66,7 +61,7 @@ export function AuthPage({ mode }: { mode: Mode }) {
           </Button>
           {mode === "login" ? (
             <p className="text-center text-sm text-muted-foreground">
-              New here?{" "}
+              Joining the team?{" "}
               <Link to={withNext("/signup")} className="font-medium text-brand hover:underline">Create an account</Link>
             </p>
           ) : (
@@ -75,15 +70,13 @@ export function AuthPage({ mode }: { mode: Mode }) {
               <Link to={withNext("/login")} className="font-medium text-brand hover:underline">Log in</Link>
             </p>
           )}
-          {mode === "signup" ? (
-            <p className="text-center text-xs text-muted-foreground">
-              On the support team? <Link to="/agent/signup" className="text-brand hover:underline">Join as an agent</Link>
-            </p>
-          ) : null}
+          <p className="text-center text-xs text-muted-foreground">
+            Here to book? <Link to="/book" className="text-brand hover:underline">No account needed</Link>
+          </p>
         </>
       }
     >
-      {mode !== "login" ? (
+      {mode === "signup" ? (
         <FormField label="Full name" htmlFor="auth-name" error={errors.name?.message}>
           <Input id="auth-name" autoComplete="name" autoFocus {...register("name", { validate: (v) => v.trim() !== "" || "Enter your name" })} />
         </FormField>
@@ -110,15 +103,14 @@ export function AuthPage({ mode }: { mode: Mode }) {
       </FormField>
       {mode === "login" ? (
         <Link to="/forgot-password" className="inline-block text-sm text-brand hover:underline">Forgot your password?</Link>
-      ) : null}
-      {mode === "agent-signup" ? (
+      ) : (
         <FormField label="Team invite code" htmlFor="auth-code">
           <Input id="auth-code" autoComplete="off" className="font-mono" {...register("code")} />
           <p className="text-xs text-muted-foreground">
-            Setting up the helpdesk? Leave this blank: the first agent account becomes the admin.
+            Setting up for the first time? Leave this blank: the first account needs no code.
           </p>
         </FormField>
-      ) : null}
+      )}
     </AuthCard>
   );
 }
