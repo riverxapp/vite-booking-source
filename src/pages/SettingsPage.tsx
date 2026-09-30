@@ -4,7 +4,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { FormField } from "@/components/common/Field";
 import { PageHeader } from "@/components/common/PageHeader";
 import { SettingsCard } from "@/components/common/SettingsCard";
-import { saveBranding } from "@/features/branding/api";
+import { saveBranding } from "@/features/branding/save";
 import { defaultBookingIntro } from "@/features/branding/intro";
 import { useBranding } from "@/features/branding/use-branding";
 import { ProfileSettings } from "@/features/settings/ProfileSettings";

@@ -112,6 +112,16 @@ export async function countBookings({ from, to, status }: { from?: string; to?: 
   return n;
 }
 
+/** Just ids and names for the list filters: no counts, no per-row subqueries. */
+export async function listFilterOptions() {
+  const [staffRows, serviceRows] = await Promise.all([
+    db.select({ value: staff.id, label: staff.name }).from(staff).orderBy(staff.name).limit(500),
+    db.select({ value: services.id, label: services.name }).from(services).orderBy(services.name).limit(500),
+  ]);
+  const toOptions = (rows: { value: number; label: string }[]) => rows.map((r) => ({ value: String(r.value), label: r.label }));
+  return { staff: toOptions(staffRows), services: toOptions(serviceRows) };
+}
+
 export async function countCustomers() {
   const [{ n }] = await db.select({ n: sql<number>`count(*)`.mapWith(Number) }).from(customers);
   return n;

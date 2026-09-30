@@ -17,7 +17,7 @@ Change boundaries and placement rules for the booking template.
 
 ## Routing
 
-1. Define routes in `src/app/routes.tsx`. Admin pages live under `/app`, the booking flow under `/book`; both are lazy-loaded.
+1. Define routes in `src/app/routes.tsx`. Admin pages live under `/app`, the booking flow under `/book`; both are lazy-loaded. The admin tree is lazy from `AppLayout` down, so public visitors never download it.
 2. Route-level views go in `src/pages`; shell composition goes in `src/components/layout` (admin) and `src/components/site` (public, `PublicLayout`). Add admin nav items in `nav.ts`, not a new layout.
 3. Internal links use `/app/...` (admin) or `/book...` (public) paths.
 4. Gate the admin tree with `RequireAuth`. The booking flow is public.
@@ -26,7 +26,7 @@ Change boundaries and placement rules for the booking template.
 ## Data
 
 1. Tables live only in `src/db/schema.ts`; change them with `pnpm db:push` (no runtime DDL).
-2. Admin queries live in `src/features/<area>/api.ts`; components call those functions, not `db` directly. The booking page's `src/features/booking/api.ts` is an HTTP client for `/api/booking/*`, never Drizzle.
+2. Admin queries live in `src/features/<area>/api.ts`; components call those functions, not `db` directly. Public code (landing, `/book`, auth, `features/booking`, `features/branding/api.ts`) never imports `@/db/client`: it would put Drizzle in every visitor's bundle. Put an admin-only write next to public code in its own file (`features/branding/save.ts`). The booking page's `src/features/booking/api.ts` is an HTTP client for `/api/booking/*`, never Drizzle.
 3. Anything the public booking page sees is queried in `server/booking.ts` with fixed, parameterised queries. It never returns customers or other people's bookings; free times are the only trace of existing bookings.
 4. New bookings are inserted only by `server/booking.ts`, with the overlap guard in the same statement. Don't add another code path that writes `bookings` rows with `status = 'confirmed'` without it.
 5. Use `db.batch([...])` for multi-step writes, never `db.transaction()`.

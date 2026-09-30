@@ -1,14 +1,13 @@
 import { createBrowserRouter, type RouteObject } from "react-router-dom";
-import { AppLayout } from "@/components/layout/AppLayout";
 import { RequireAuth } from "@/features/auth/RequireAuth";
 import { AuthPage } from "@/pages/AuthPage";
 import { ForgotPasswordPage } from "@/pages/ForgotPasswordPage";
 import { LandingPage } from "@/pages/LandingPage";
 import { NotFoundPage } from "@/pages/NotFoundPage";
 import { ResetPasswordPage } from "@/pages/ResetPasswordPage";
-import { DatabaseGate } from "./DatabaseGate";
 
-// The booking flow and the admin pages load on demand so the landing and auth pages stay light.
+// The booking flow and the whole admin tree (shell, Drizzle, Radix dialog) load on demand, so the
+// landing and auth pages stay light.
 const page = (load: () => Promise<Record<string, React.ComponentType>>, name: string): RouteObject["lazy"] =>
   async () => ({ Component: (await load())[name] });
 
@@ -28,10 +27,10 @@ export const router = createBrowserRouter(
       element: <RequireAuth />,
       children: [
         {
-          element: <AppLayout />,
+          lazy: page(() => import("@/components/layout/AppLayout"), "AppLayout"),
           children: [
             {
-              element: <DatabaseGate />,
+              lazy: page(() => import("./DatabaseGate"), "DatabaseGate"),
               children: [
                 { index: true, lazy: page(() => import("@/pages/DashboardPage"), "DashboardPage") },
                 { path: "bookings", lazy: page(() => import("@/pages/BookingsPage"), "BookingsPage") },

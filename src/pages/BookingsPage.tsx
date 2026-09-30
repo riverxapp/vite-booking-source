@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { CalendarCheck } from "@/components/icons";
 import { Card } from "@/components/ui/card";
@@ -10,10 +10,8 @@ import { SearchInput } from "@/components/common/SearchInput";
 import { EmptyState, ErrorState, LoadingRows } from "@/components/common/States";
 import { ToneBadge } from "@/components/common/ToneBadge";
 import { bookingConfig, type Option } from "@/config/booking";
-import { listBookings, type BookingWhen } from "@/features/bookings/api";
+import { listBookings, listFilterOptions, type BookingWhen } from "@/features/bookings/api";
 import { useBranding } from "@/features/branding/use-branding";
-import { listServices } from "@/features/services/api";
-import { listStaff } from "@/features/staff/api";
 import { useAsync } from "@/hooks/use-async";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { useListParams } from "@/hooks/use-list-params";
@@ -38,10 +36,9 @@ export function BookingsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debounced]);
 
-  const staff = useAsync(listStaff, []);
-  const services = useAsync(listServices, []);
-  const staffOptions = useMemo(() => (staff.data ?? []).map((s) => ({ value: String(s.id), label: s.name })), [staff.data]);
-  const serviceOptions = useMemo(() => (services.data ?? []).map((s) => ({ value: String(s.id), label: s.name })), [services.data]);
+  const options = useAsync(listFilterOptions, []);
+  const staffOptions = options.data?.staff ?? [];
+  const serviceOptions = options.data?.services ?? [];
 
   const { status, staff: staffId, service: serviceId } = list.filters;
   const when = (list.filters.when || "upcoming") as BookingWhen;

@@ -320,7 +320,7 @@ A production build with no `VITE_RIVERX_DB_URL` uses `/api/db` (`api/db/[action]
 
 Visitors never get Data API access. The public booking page talks to `/api/booking/*` (`server/booking.ts`), which runs fixed, parameterised queries: active services someone performs, active staff for a service, free slots, and creating a booking. It never returns customers or other people's bookings; free times are the only trace of existing bookings. Keep it that way: anything new the booking page needs belongs in `server/booking.ts`, not in `src/features/*/api.ts`.
 
-Bookings are inserted only there, with an overlap guard in the same statement (`insert … select … where not exists (a confirmed booking for that staff member that overlaps)`) inside a write batch, so two people can't take the same time. Slot maths lives in `server/slots.ts`.
+The slots endpoint reads the service, staff member, weekly hours, confirmed bookings in the window and the time zone in one read batch (one round trip); creating a booking reads only that date's bookings. Bookings are inserted only there, with an overlap guard in the same statement (`insert … select … where not exists (a confirmed booking for that staff member that overlaps)`) inside a write batch, so two people can't take the same time. Slot maths lives in `server/slots.ts`.
 
 > [!WARNING]
 > **Under RiverX's hosted Data API this separation does not hold.** The publishable key is in the bundle, so anyone can query `customers` and `bookings` directly and read names, emails and phone numbers. Run on our own Data API (local proxy / `/api/db`) before real customers book.

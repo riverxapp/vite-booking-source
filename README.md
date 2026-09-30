@@ -149,7 +149,22 @@ The build is a static SPA plus three serverless functions (`/api/auth/*`, `/api/
 
 ## Dependency budget
 
-Dev mode is what runs in the workspaces, so every package has to earn its place. The booking conversion added no dependencies: still 12 at runtime, and the production main chunk is about 393 KB (125 KB gzipped). Email goes through `fetch`, and the booking calendar, time grid and charts are plain components.
+Dev mode is what runs in the workspaces, so every package has to earn its place. The booking conversion added no dependencies: still 12 at runtime. Email goes through `fetch`, and the booking calendar, time grid and charts are plain components.
+
+What a visitor downloads is kept apart from what an admin needs. Production build, measured 2026-09-30:
+
+| Chunk | Loaded by | Size (gzip) |
+|---|---|---|
+| Main (`index`) | Every page: landing, auth, booking shell | 282 KB (92 KB) |
+| Booking flow (`BookPage`, with its steps) | `/book` | 14 KB (5 KB) |
+| Drizzle client (`client`) | `/app` only | 74 KB (21 KB) |
+| Radix select (`OptionSelect`) | `/app` only | 51 KB (18 KB) |
+
+Before the split the main chunk was 399 KB (126 KB gzipped), because Drizzle, the Radix dialog and the booking steps came along with the landing page. Keep it that way:
+
+- Public modules (landing, `/book`, auth, `features/booking`, `features/branding/api.ts`) must not import `@/db/client`. Admin-only writes sit in their own files (e.g. `features/branding/save.ts`).
+- The admin tree is lazy from its layout down (`AppLayout`, `DatabaseGate`, every page), so add admin routes inside it.
+- Check with `pnpm build`: a public change that grows `index-*.js` noticeably has probably pulled in admin code.
 
 What replaced what:
 

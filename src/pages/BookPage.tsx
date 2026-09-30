@@ -31,18 +31,22 @@ export function BookPage() {
   const p = useBookingParams();
   const form = useForm<DetailsValues>({ defaultValues: { name: "", email: "", phone: "", notes: "" } });
 
+  // All three load in parallel from the URL ids, so a deep link doesn't wait on a chain of
+  // requests. Each result only counts once the choice before it checks out.
   const services = useAsync(listServices, []);
+  const staff = useAsync(() => listStaffFor(p.serviceId!), [p.serviceId], p.serviceId != null);
+  const slots = useAsync(() => getSlots(p.serviceId!, p.staffId!), [p.serviceId, p.staffId], p.serviceId != null && p.staffId != null);
   const service = services.data?.find((s) => s.id === p.serviceId);
-  const staff = useAsync(() => listStaffFor(service!.id), [service?.id], Boolean(service));
   const member = service ? staff.data?.find((s) => s.id === p.staffId) : undefined;
-  const slots = useAsync(() => getSlots(service!.id, member!.id), [service?.id, member?.id], Boolean(member));
   const day = member ? slots.data?.days.find((d) => d.date === p.date && d.times.length) : undefined;
   const time = day && p.time != null && day.times.includes(p.time) ? p.time : undefined;
 
   const step = !service ? 0 : !member ? 1 : !day ? 2 : time == null ? 3 : 4;
   // A choice in the URL whose data hasn't arrived yet: wait rather than flash an earlier step.
   const waiting = (p.serviceId != null && services.loading) || (p.staffId != null && staff.loading) || (p.date != null && slots.loading);
-  const error = services.error ?? staff.error ?? slots.error;
+  // A stale id in the URL makes a later request fail (e.g. slots for a staff member who no
+  // longer offers the service). That's not an error: the visitor just lands on the earlier step.
+  const error = services.error ?? (service ? staff.error : null) ?? (member ? slots.error : null);
 
   // Move focus to the new step's heading so keyboard and screen reader users follow along.
   const heading = useRef<HTMLHeadingElement>(null);

@@ -85,8 +85,13 @@ export const clientIp = (req: IncomingMessage) =>
 
 // Tiny best-effort rate limit (per server instance).
 const attempts = new Map<string, { count: number; resetAt: number }>();
+const MAX_TRACKED_KEYS = 10_000;
 export function rateLimit(key: string, limit = 10, windowMs = 15 * 60_000) {
   const now = Date.now();
+  // Forget expired windows now and then, so a long-running server doesn't grow without bound.
+  if (attempts.size > MAX_TRACKED_KEYS) {
+    for (const [k, v] of attempts) if (v.resetAt < now) attempts.delete(k);
+  }
   const entry = attempts.get(key);
   if (!entry || entry.resetAt < now) {
     attempts.set(key, { count: 1, resetAt: now + windowMs });

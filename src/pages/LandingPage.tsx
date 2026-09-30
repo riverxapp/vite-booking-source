@@ -6,7 +6,7 @@ import { PublicLayout } from "@/components/site/PublicLayout";
 import { useBranding } from "@/features/branding/use-branding";
 import { defaultBookingIntro } from "@/features/branding/intro";
 import { listServices } from "@/features/booking/api";
-import { NoServices } from "@/features/booking/steps";
+import { NoServices } from "@/features/booking/NoServices";
 import { useAsync } from "@/hooks/use-async";
 import { formatDuration, formatPrice } from "@/lib/format";
 

@@ -43,10 +43,14 @@ function readSettings(row: Row | undefined) {
 
 const SETTINGS_SQL = "select company_name, logo_url, booking_intro, timezone from business_settings where id = 1";
 
-/** Everything needed to compute slots for one service + staff pair, in one round trip. */
-async function loadBookable(db: Client, serviceId: number, staffId: number) {
+/**
+ * Everything needed to compute slots for one service + staff pair, in one round trip.
+ * `onDate` narrows the bookings read to that one date (creating a booking needs no more).
+ */
+async function loadBookable(db: Client, serviceId: number, staffId: number, onDate?: string) {
   // Any zone's "today" is within a day of UTC's, so this range covers the window everywhere.
   const utcToday = nowIn("UTC").date;
+  const [from, to] = onDate ? [onDate, onDate] : [addDays(utcToday, -1), addDays(utcToday, BOOKING_RULES.windowDays + 1)];
   const [service, member, hours, busy, settings] = await db.batch(
     [
       { sql: "select id, name, duration_minutes, price_cents from services where id = ? and active = 1", args: [serviceId] },
@@ -58,7 +62,7 @@ async function loadBookable(db: Client, serviceId: number, staffId: number) {
       { sql: "select weekday, start_minute, end_minute from availability where staff_id = ?", args: [staffId] },
       {
         sql: "select date, start_minute, end_minute from bookings where staff_id = ? and status = 'confirmed' and date between ? and ?",
-        args: [staffId, addDays(utcToday, -1), addDays(utcToday, BOOKING_RULES.windowDays + 1)],
+        args: [staffId, from, to],
       },
       SETTINGS_SQL,
     ],
@@ -143,7 +147,7 @@ const SLOT_TAKEN = "That time was just taken. Pick another one.";
 async function createBooking(db: Client, req: IncomingMessage, res: ServerResponse, env: Env) {
   rateLimit(`book:${clientIp(req)}`, 20);
   const input = readBooking(await readJson(req, MAX_BODY_BYTES));
-  const ctx = await loadBookable(db, input.serviceId, input.staffId);
+  const ctx = await loadBookable(db, input.serviceId, input.staffId, input.date);
   if (!slotsForDate(input.date, ctx.input).includes(input.startMinute)) throw httpError(409, SLOT_TAKEN);
 
   const endMinute = input.startMinute + ctx.service.durationMinutes;

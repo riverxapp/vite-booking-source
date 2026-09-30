@@ -7,7 +7,7 @@ Structural index for the booking template.
 - `index.html`: Vite HTML entry (loads fonts and `/src/main.tsx`). Required by Vite.
 - `src/main.tsx`: React mount.
 - `src/app/App.tsx`: providers (theme, auth, branding, toasts) + router.
-- `src/app/routes.tsx`: every route. `/`, `/book`, `/book/confirmed`, `/login`, `/signup`, `/forgot-password`, `/reset-password` are public; `/app/*` (dashboard, bookings, services, staff, customers, settings) is for admins. The booking flow and admin pages are lazy-loaded.
+- `src/app/routes.tsx`: every route. `/`, `/book`, `/book/confirmed`, `/login`, `/signup`, `/forgot-password`, `/reset-password` are public; `/app/*` (dashboard, bookings, services, staff, customers, settings) is for admins. The booking flow and the whole admin tree (layout, database gate, pages) are lazy-loaded.
 - `src/app/DatabaseGate.tsx`: shows setup instructions when no database is configured (dev only in practice: production builds fall back to `/api/db`).
 
 ## Source areas
@@ -16,7 +16,7 @@ Structural index for the booking template.
 |---|---|---|
 | Booking config | `src/config/booking.ts` | Statuses, currency, locale, service lengths, weekdays, page size: the file to edit to adapt the vocabulary |
 | Database | `src/db/` | `schema.ts` (all tables), `client.ts` (Drizzle over the Data API), `helpers.ts` (search, paging types) |
-| Features | `src/features/<area>/` | `booking` (public API client, URL state, stepper, the steps, summary), `bookings` (admin queries, `BookingList`), `services` (queries, create/edit sheet), `staff` (queries, weekly hours editor), `customers`, `branding` (company name, logo, booking intro, time zone), `settings` (profile form, URL validation), `auth` (session context, route guard) |
+| Features | `src/features/<area>/` | `booking` (public API client, URL state, stepper, the steps, summary, empty state), `bookings` (admin queries incl. filter options, `BookingList`), `services` (queries, create/edit sheet), `staff` (queries, default hours on create, weekly hours editor), `customers`, `branding` (public read in `api.ts`, admin write in `save.ts`, context, default intro), `settings` (profile form, URL validation), `auth` (session context, route guard) |
 | Pages | `src/pages/` | Route-level views: landing, book, booking confirmed, auth, forgot/reset password, dashboard, bookings, booking detail, services, staff, staff detail, customers, customer detail, settings, 404 |
 | Admin shell | `src/components/layout/` | `SidebarShell` + `AppLayout`, nav items, brand mark, theme toggle |
 | Public site | `src/components/site/` | `PublicLayout` (header + footer), site header, footer, auth card |
@@ -39,7 +39,7 @@ Server code lives in `server/`; `api/` holds thin Vercel function wrappers and `
 | `server/email.ts` | `sendEmail` (Resend over `fetch`, or a server log) and the booking confirmation template |
 | `server/auth.ts` | Auth API: signup (first admin, then invite code), login, logout, me, forgot/reset password, profile. Scrypt hashes, DB-backed sessions |
 | `server/db.ts` | Data API handler and SQL guard, shared by the local proxy and `/api/db` |
-| `server/http.ts` | JSON body, response, cookie, routing and rate-limit helpers shared by the handlers |
+| `server/http.ts` | JSON body, response, cookie, routing and rate-limit helpers (self-pruning) shared by the handlers |
 | `server/env.ts` | Reads the server-only settings (`TURSO_*`, `ADMIN_SIGNUP_CODE`, `APP_URL`, `RESEND_API_KEY`, `EMAIL_FROM`) |
 | `api/auth/[action].ts` | Vercel function wrapping `server/auth.ts` |
 | `api/booking/[action].ts` | Vercel function wrapping `server/booking.ts` |
