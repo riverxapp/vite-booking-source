@@ -6,10 +6,11 @@ import { handleDbRequest, send } from "../server/db";
 import { serverEnv } from "../server/env";
 
 /**
- * Local stand-in for the RiverX Data API, for running this app outside RiverX.
+ * The dev server's Data API: the RiverX preview, and `pnpm dev` anywhere else.
  *
  * Active only in `vite dev`, only when TURSO_DATABASE_URL is set and
- * VITE_RIVERX_DB_URL is not. The Turso token stays in this Node process; the
+ * VITE_RIVERX_DB_URL is not (RiverX sets TURSO_* and leaves VITE_RIVERX_DB_*
+ * out for apps that load this plugin). The Turso token stays in this Node process; the
  * browser gets a random per-process key and talks to /__local-db/v1 with the
  * same request/response contract as the real Data API (see DATABASE.md).
  * Like /api/db, it also requires an admin session: the key alone is in
