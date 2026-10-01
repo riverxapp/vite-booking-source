@@ -38,14 +38,14 @@ Server code lives in `server/`; `api/` holds thin Vercel function wrappers and `
 | `server/booking.ts` | Public booking API: branding, services, staff for a service, free slots, create booking (overlap-guarded insert + confirmation email) |
 | `server/email.ts` | `sendEmail` (Resend over `fetch`, or a server log) and the booking confirmation template |
 | `server/auth.ts` | Auth API: signup (first admin, then invite code), login, logout, me, forgot/reset password, profile. Scrypt hashes, DB-backed sessions |
-| `server/db.ts` | Data API handler and SQL guard, shared by the local proxy and `/api/db` |
+| `server/db.ts` | Data API handler and SQL guard, shared by the dev proxy and `/api/db` |
 | `server/http.ts` | JSON body, response, cookie, routing and rate-limit helpers (self-pruning) shared by the handlers |
 | `server/env.ts` | Reads the server-only settings (`TURSO_*`, `ADMIN_SIGNUP_CODE`, `APP_URL`, `RESEND_API_KEY`, `EMAIL_FROM`) |
 | `api/auth/[action].ts` | Vercel function wrapping `server/auth.ts` |
 | `api/booking/[action].ts` | Vercel function wrapping `server/booking.ts` |
 | `api/db/[action].ts` | Vercel function serving the Data API at `/api/db/*`, admin sessions only |
 | `scripts/local-api.ts` | Serves the auth and booking APIs from Vite: `/__local-api/*` in dev, `/api/*` in preview |
-| `scripts/local-db-proxy.ts` | Dev-only stand-in for the RiverX Data API (`/__local-db/v1`), key- and session-checked, wrapping `server/db.ts` |
+| `scripts/local-db-proxy.ts` | Dev server's Data API (`/__local-db/v1`) for the RiverX preview and `pnpm dev`, key- and session-checked, wrapping `server/db.ts` |
 
 ## Root config
 
