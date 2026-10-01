@@ -1,5 +1,7 @@
 const DEFAULT_APP_NAME = "RiverX Booking";
-const DEFAULT_API_BASE_URL = "/api";
+// The dev server must stay off /api: under a RiverX workspace preview the backend
+// domain routes /api/* to RiverX itself. Production builds use the Vercel functions.
+const DEFAULT_API_BASE_URL = import.meta.env.PROD ? "/api" : "/__local-api";
 // Production builds outside RiverX use our own Data API function (api/db/[action].ts).
 const DEFAULT_DB_URL = import.meta.env.PROD ? "/api/db" : "";
 
