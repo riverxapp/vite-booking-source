@@ -4,8 +4,8 @@ import { handleDbRequest, send } from "../../server/db.js";
 import { serverEnv } from "../../server/env.js";
 import { sendError } from "../../server/http.js";
 
-// Vercel Node function for /api/db/:action — the production Data API when the
-// app is not hosted on RiverX. Requires an admin session; the public booking
+// Vercel Node function for /api/db/:action — the Data API for every production
+// build, including apps published from RiverX. Requires an admin session; the public booking
 // page uses /api/booking/* instead.
 export default async function handler(req: IncomingMessage, res: ServerResponse) {
   const action = (req.url ?? "").split("?")[0].match(/^\/api\/db\/([a-z]+)\/?$/)?.[1] ?? "";

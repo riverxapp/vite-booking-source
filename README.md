@@ -91,8 +91,8 @@ Ideas the template leaves out on purpose (add them when you need them): "any ava
 |---|---|---|
 | `VITE_APP_NAME` | browser | Fallback name until an admin sets the company name in Settings (default `RiverX Booking`) |
 | `VITE_API_BASE_URL` | browser | Base for `src/lib/api.ts` (default `/__local-api` in `pnpm dev`, `/api` in production builds). Never point the dev server at `/api`: a RiverX workspace preview routes `/api/*` to RiverX |
-| `VITE_RIVERX_DB_URL` / `VITE_RIVERX_DB_KEY` | browser | RiverX Data API. Injected by RiverX; leave empty locally and on your own Vercel project |
-| `TURSO_DATABASE_URL` / `TURSO_AUTH_TOKEN` | **server only** | drizzle-kit, the local DB proxy, and the auth, booking and data API functions. Never prefix with `VITE_` |
+| `VITE_RIVERX_DB_URL` / `VITE_RIVERX_DB_KEY` | browser | RiverX Data API for the dev server in the RiverX preview. Injected by RiverX; production builds ignore them. Leave empty locally and on your own Vercel project |
+| `TURSO_DATABASE_URL` / `TURSO_AUTH_TOKEN` | **server only** | drizzle-kit, the local DB proxy, and the auth, booking and data API functions. Set on Vercel by RiverX when you publish. Never prefix with `VITE_` |
 | `ADMIN_SIGNUP_CODE` | **server only** | Team invite code for more admins. The first account needs none; without this set, signup closes after it |
 | `APP_URL` | **server only** | Public origin for links in emails, e.g. `https://book.example.com`. Defaults to the request's origin; set it in production |
 | `RESEND_API_KEY` / `EMAIL_FROM` | **server only** | Send email through [Resend](https://resend.com). `EMAIL_FROM` is e.g. `Acme <bookings@acme.com>` on a domain verified there. Unset: emails are logged on the server instead |
@@ -111,9 +111,9 @@ The browser code is the same everywhere; only the Data API behind it changes:
 
 | Where | Data API | Authorised by |
 |---|---|---|
-| RiverX | RiverX's hosted endpoint, from `VITE_RIVERX_DB_URL` (see `DATABASE.md`) | Publishable key `VITE_RIVERX_DB_KEY` |
+| RiverX preview (`pnpm dev`) | RiverX's hosted endpoint, from `VITE_RIVERX_DB_URL` (see `DATABASE.md`) | Publishable key `VITE_RIVERX_DB_KEY` |
 | `pnpm dev`, no RiverX | `/__local-db/v1`, served by `scripts/local-db-proxy.ts` when `TURSO_*` are set | Random per-process key + admin session |
-| Production build, no RiverX (e.g. Vercel) | `/api/db/*`, served by `api/db/[action].ts` | Admin session cookie |
+| Production build (published from RiverX, or your own Vercel deploy) | `/api/db/*`, served by `api/db/[action].ts` | Admin session cookie |
 
 - The local proxy and `/api/db` share `server/db.ts`: the same contract and SQL guard (no DDL, one statement per query, no SQL touching `auth_*` tables). The Turso token stays on the server.
 - **Auth and booking** run only on the server: Vite middleware in dev (`scripts/local-api.ts`) and Vercel functions in production (`api/auth/[action].ts`, `api/booking/[action].ts`). They share `server/auth.ts` and `server/booking.ts`.
@@ -122,9 +122,9 @@ The browser code is the same everywhere; only the Data API behind it changes:
 
 The build is a static SPA plus three serverless functions (`/api/auth/*`, `/api/booking/*`, `/api/db/*`). `vercel.json` rewrites client routes to `index.html`.
 
-1. In Vercel → Project → Settings → Environment Variables, set `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN`, `APP_URL`, `RESEND_API_KEY` and `EMAIL_FROM`, and (to let teammates join) `ADMIN_SIGNUP_CODE`, all server-only with no `VITE_` prefix, for each environment you deploy.
-2. Run `pnpm db:push` against that database once so the tables exist.
-3. Leave `VITE_RIVERX_DB_*` unset: admin data then goes through `/api/db`. Under RiverX, its injected `VITE_RIVERX_DB_*` take precedence.
+1. In Vercel → Project → Settings → Environment Variables, set `APP_URL`, `RESEND_API_KEY` and `EMAIL_FROM`, and (to let teammates join) `ADMIN_SIGNUP_CODE`, all server-only with no `VITE_` prefix, for each environment you deploy. Publishing from RiverX sets `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN` for you, as sensitive (server-only) variables for production and preview, but not these. Deploying yourself, set `TURSO_*` too.
+2. Run `pnpm db:push` against that database once so the tables exist. Published from RiverX, it is the same database as the preview.
+3. Production builds ignore `VITE_RIVERX_DB_*`: admin data always goes through `/api/db`, including when published from RiverX.
 4. Redeploy after changing env vars. `VITE_*` values are inlined at build time.
 
 `package.json` sets `"type": "module"`, so Vercel runs the functions as native ES modules. Relative imports in `api/` and `server/` must end in `.js` (`from "../../server/auth.js"`); without it the function fails to load with `FUNCTION_INVOCATION_FAILED`.
@@ -132,7 +132,7 @@ The build is a static SPA plus three serverless functions (`/api/auth/*`, `/api/
 | Symptom on Vercel | Cause / fix |
 |---|---|
 | `FUNCTION_INVOCATION_FAILED` | Usually a relative import without `.js` in `api/` or `server/`. Check the function logs for `ERR_MODULE_NOT_FOUND` |
-| 503 "The server is not configured" | `TURSO_*` missing from that environment's variables |
+| 503 "The server is not configured" | `TURSO_*` missing from that environment's variables. Published from RiverX, the build predates RiverX setting `TURSO_*`: republish from RiverX, or generate a new key from the **Data** tab, which also redeploys |
 | "Connect a database to get started" | The deployed build predates `/api/db`. Redeploy from the current `main` |
 | Data requests return 401 "Log in to continue." | No valid session cookie. Log in again |
 | Errors like `no such table` | Run `pnpm db:push` against the production database |
@@ -141,11 +141,11 @@ The build is a static SPA plus three serverless functions (`/api/auth/*`, `/api/
 
 ## Security notes
 
-- **Customer data is protected only on our own Data API** (the local proxy and `/api/db`), which accept admin sessions only. The booking page uses `/api/booking/*`, which exposes services, staff names and free times, and creates bookings; it never returns other customers or bookings.
-- **Under RiverX's hosted Data API, that protection is gone.** Its key ships in the browser bundle, so anyone with the app URL can read every table, customer names, emails and phone numbers included. Don't take real bookings on it.
+- **Customer data is protected by our own Data API** (the local proxy and `/api/db`, which every published app uses), which accept admin sessions only. The booking page uses `/api/booking/*`, which exposes services, staff names and free times, and creates bookings; it never returns other customers or bookings.
+- **The RiverX preview does not have that protection.** It uses RiverX's hosted Data API with a publishable key that ships in the preview's bundle, so anyone who gets that key can read every table, customer names, emails and phone numbers included. The preview and the published app share one database, so this reaches real bookings too. The Data tab's **Key** button replaces the server token (`TURSO_AUTH_TOKEN`), not this key.
 - Every admin can read and write all booking data.
 - `POST /api/booking/bookings` is rate limited per IP (20 per 15 minutes, per server instance). Add a CAPTCHA if spam bookings become a problem.
-- Under RiverX's hosted Data API, the `auth_*` tables are readable with the public key. Passwords are scrypt-hashed and only token hashes are stored, but for real deployments keep auth in a database the public key cannot reach.
+- With the preview's publishable key, the `auth_*` tables are readable too. Passwords are scrypt-hashed and only token hashes are stored. `/api/db` rejects any SQL that touches them.
 
 ## Dependency budget
 

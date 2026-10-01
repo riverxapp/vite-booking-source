@@ -2,12 +2,15 @@ const DEFAULT_APP_NAME = "RiverX Booking";
 // The dev server must stay off /api: under a RiverX workspace preview the backend
 // domain routes /api/* to RiverX itself. Production builds use the Vercel functions.
 const DEFAULT_API_BASE_URL = import.meta.env.PROD ? "/api" : "/__local-api";
-// Production builds outside RiverX use our own Data API function (api/db/[action].ts).
-const DEFAULT_DB_URL = import.meta.env.PROD ? "/api/db" : "";
+// Production builds (Vercel, including apps published from RiverX) always use
+// our own Data API function (api/db/[action].ts), which checks the login
+// session and reaches Turso with the server-only TURSO_* env. The RiverX
+// publishable key is for the dev server only: it would let anyone with the
+// bundle query the database, so it is kept out of production builds.
 
 export const env = {
   appName: import.meta.env.VITE_APP_NAME || DEFAULT_APP_NAME,
   apiBaseUrl: import.meta.env.VITE_API_BASE_URL || DEFAULT_API_BASE_URL,
-  dbUrl: import.meta.env.VITE_RIVERX_DB_URL || DEFAULT_DB_URL,
-  dbKey: import.meta.env.VITE_RIVERX_DB_KEY || "",
+  dbUrl: import.meta.env.PROD ? "/api/db" : import.meta.env.VITE_RIVERX_DB_URL || "",
+  dbKey: import.meta.env.PROD ? "" : import.meta.env.VITE_RIVERX_DB_KEY || "",
 };

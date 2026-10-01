@@ -8,7 +8,7 @@ Structural index for the booking template.
 - `src/main.tsx`: React mount.
 - `src/app/App.tsx`: providers (theme, auth, branding, toasts) + router.
 - `src/app/routes.tsx`: every route. `/`, `/book`, `/book/confirmed`, `/login`, `/signup`, `/forgot-password`, `/reset-password` are public; `/app/*` (dashboard, bookings, services, staff, customers, settings) is for admins. The booking flow and the whole admin tree (layout, database gate, pages) are lazy-loaded.
-- `src/app/DatabaseGate.tsx`: shows setup instructions when no database is configured (dev only in practice: production builds fall back to `/api/db`).
+- `src/app/DatabaseGate.tsx`: shows setup instructions when no database is configured (dev only in practice: production builds always use `/api/db`).
 
 ## Source areas
 

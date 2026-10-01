@@ -5,7 +5,7 @@ Change boundaries and placement rules for the booking template.
 ## Product shape
 
 - Vite + React SPA: public landing, the booking flow under `/book`, auth pages, and the admin dashboard under `/app`.
-- Admin data goes through Drizzle over the Data API (`src/db/client.ts`): RiverX's hosted one, the dev proxy, or `/api/db` in production. Our own Data API accepts admin sessions only.
+- Admin data goes through Drizzle over the Data API (`src/db/client.ts`): RiverX's hosted one in the RiverX preview, the dev proxy, or `/api/db` in every production build. Our own Data API accepts admin sessions only.
 - The booking page goes only through `/api/booking/*` (`server/booking.ts`). Visitors never get Data API access, and customers have no login.
 - Auth goes through the server API (`server/auth.ts`); the browser never touches `auth_*` tables.
 - Statuses, currency, locale and service lengths live in `src/config/booking.ts`; scheduling rules live in `BOOKING_RULES` in `server/slots.ts`. Never hard-code them in pages.
