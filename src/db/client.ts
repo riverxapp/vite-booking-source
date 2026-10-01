@@ -12,11 +12,11 @@ type QueryResult = {
   truncated?: boolean;
 };
 
-// /api/db authenticates with the session cookie; the RiverX Data API also needs dbKey.
+// /api/db authenticates with the session cookie; the dev proxy also needs dbKey.
 export const isDatabaseConfigured = Boolean(env.dbUrl);
 
 // Absolute, so apiRequest never prefixes it with the API base URL. Handles the
-// relative URL of the local dev proxy as well as the RiverX Data API URL.
+// relative URL of the dev proxy as well as an absolute Data API URL.
 const dbBaseUrl = env.dbUrl ? new URL(env.dbUrl, window.location.origin).href.replace(/\/$/, "") : "";
 
 function post<T>(path: string, body: unknown) {
