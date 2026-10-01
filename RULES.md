@@ -22,6 +22,7 @@ Change boundaries and placement rules for the booking template.
 3. Internal links use `/app/...` (admin) or `/book...` (public) paths.
 4. Gate the admin tree with `RequireAuth`. The booking flow is public.
 5. Booking flow state lives in the URL (`use-booking-params.ts`): a new step is a new parameter in `CHOICES`, so back/forward and deep links keep working.
+6. Keep `basename: previewBasename` in `createBrowserRouter`. The RiverX editor preview serves the app under `/preview/<session>/__frame/`; without it every route shows the 404 page there. Navigate with `<Link>` / `useNavigate`, never `window.location`, so the prefix is kept.
 
 ## Data
 
